@@ -49,6 +49,68 @@ Acesse **http://localhost:8080**.
 
 Sem Touch ID ou chave de segurança? No Chrome, abra **DevTools → ⋮ → More tools → WebAuthn** e ative o *virtual authenticator environment*.
 
+## Como funciona
+
+Uma passkey é um **par de chaves**: a chave privada fica no autenticador do usuário e nunca sai de lá; o servidor guarda apenas a chave pública. Cada operação (*cerimônia*) tem dois passos no servidor: **gerar opções** com um challenge aleatório de uso único e **verificar a resposta** do autenticador com o webauthn4j.
+
+### Fluxo de registro
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuário
+    participant B as Navegador (passkey.js)
+    participant S as Servidor (RegistrationService)
+    participant A as Autenticador
+
+    U->>B: Preenche username e clica "Criar passkey"
+    B->>S: POST /registration/options {username, displayName, nickname, authenticator}
+    S->>S: Gera challenge + userHandle, guarda na sessão
+    S-->>B: PublicKeyCredentialCreationOptionsJSON
+    B->>A: navigator.credentials.create(options)
+    A->>U: Pede biometria / PIN
+    U->>A: Confirma
+    A->>A: Gera par de chaves, guarda a chave privada
+    A-->>B: attestationObject + clientDataJSON
+    B->>S: POST /registration/verify (RegistrationResponseJSON)
+    S->>S: webauthn4j: parse + verify
+    S->>S: Salva chave pública (CredentialRecordImpl)
+    S-->>B: {username, credentialId, kind}
+    B->>B: htmx recarrega a lista
+```
+
+Na verificação, o webauthn4j confere o tipo da operação (`webauthn.create`), o challenge, a origem, o hash do RP ID, as flags de presença e verificação do usuário (UP/UV), o algoritmo da chave e a declaração de atestação.
+
+### Fluxo de autenticação (validação)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuário
+    participant B as Navegador (passkey.js)
+    participant S as Servidor (AuthenticationService)
+    participant A as Autenticador
+
+    U->>B: Clica "Entrar com passkey" (username opcional)
+    B->>S: POST /authentication/options {username?, authenticator?}
+    S->>S: Gera challenge e allowCredentials (passkeys do usuário ou vazio)
+    S-->>B: PublicKeyCredentialRequestOptionsJSON
+    B->>A: navigator.credentials.get(options)
+    A->>U: Mostra as passkeys / pede biometria
+    U->>A: Escolhe e confirma
+    A->>A: Assina (authenticatorData ‖ SHA-256(clientDataJSON))
+    A-->>B: authenticatorData + clientDataJSON + signature + userHandle
+    B->>S: POST /authentication/verify (AuthenticationResponseJSON)
+    S->>S: Localiza a credencial pelo ID e confere o dono
+    S->>S: webauthn4j: verify (assinatura, challenge, origem, contador)
+    S->>S: Atualiza signCount, troca ID da sessão, marca usuário logado
+    S-->>B: {username, signCount, userVerified}
+```
+
+Sem username, `allowCredentials` vai vazio: o navegador oferece as passkeys salvas para o site, e o servidor identifica o usuário pelo `userHandle` devolvido pelo autenticador.
+
+O passo a passo detalhado de cada fluxo, ligado às classes do código, está nas seções [4](PASSKEYS.md#4-fluxo-de-registro) e [5](PASSKEYS.md#5-fluxo-de-autenticação-validação) do PASSKEYS.md.
+
 ## Testes
 
 ```bash

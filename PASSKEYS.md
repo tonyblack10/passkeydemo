@@ -174,7 +174,7 @@ sequenceDiagram
     participant A as Autenticador
 
     U->>B: Preenche username e clica "Criar passkey"
-    B->>S: POST /registration/options {username, displayName, nickname}
+    B->>S: POST /registration/options {username, displayName, nickname, authenticator}
     S->>S: Gera challenge + userHandle, guarda na sessão
     S-->>B: PublicKeyCredentialCreationOptionsJSON
     B->>A: navigator.credentials.create(options)
@@ -224,8 +224,8 @@ sequenceDiagram
     participant A as Autenticador
 
     U->>B: Clica "Entrar com passkey" (username opcional)
-    B->>S: POST /authentication/options {username?}
-    S->>S: Gera challenge; allowCredentials = passkeys do usuário (ou vazio)
+    B->>S: POST /authentication/options {username?, authenticator?}
+    S->>S: Gera challenge e allowCredentials (passkeys do usuário ou vazio)
     S-->>B: PublicKeyCredentialRequestOptionsJSON
     B->>A: navigator.credentials.get(options)
     A->>U: Mostra as passkeys / pede biometria
