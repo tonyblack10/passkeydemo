@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="status" class="flex items-center gap-3 text-sm">
+    <th:block th:if="${currentUser != null}">
+        <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-300">
+            ● Autenticado como <strong th:text="${currentUser}">maria</strong>
+        </span>
+        <button class="rounded px-3 py-1 ring-1 ring-slate-500 hover:bg-slate-700"
+                hx-post="/logout" hx-target="#session-status" hx-swap="innerHTML">Sair</button>
+    </th:block>
+    <span th:if="${currentUser == null}" class="rounded-full bg-slate-700 px-3 py-1 text-slate-300">
+        ○ Não autenticado
+    </span>
+</div>
+</body>
+</html>
